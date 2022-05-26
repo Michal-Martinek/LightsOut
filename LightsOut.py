@@ -7,6 +7,13 @@ NODE_SPACING = 25
 BLOCK_SIZE = NODE_SIZE + NODE_SPACING
 SCREEN_SIZE = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
 
+# assets
+IMAGE_BULB_LIT = pygame.image.load('Assets\\BulbLit.png')
+IMAGE_BULB_LIT.set_colorkey((255, 255, 255))
+IMAGE_BULB_DARK = pygame.image.load('Assets\\BulbDark.png')
+IMAGE_BULB_DARK.set_colorkey((255, 255, 255))
+
+
 class LightsGrid:
     def generateNeighborRules(self):
         for x in range(self.size):
@@ -23,7 +30,6 @@ class LightsGrid:
         for x in range(self.size):
             bulbs.extend( [(x, y) for y in range(self.size)] )
         moves = random.sample(bulbs, numMoves)
-        print('numMoves', numMoves, 'moves:', moves)
         for move in moves:
             self.toggleAt(move)
     def __init__(self, size: int):
@@ -35,9 +41,10 @@ class LightsGrid:
         
     def drawGrid(self, display):
         for y, row in enumerate(self.grid):
-            for x, node in enumerate(row):
-                color = (255, 255, 0) if node else (0, 0, 255)
-                pygame.draw.rect(display, color, (x * BLOCK_SIZE + NODE_SPACING, y * BLOCK_SIZE + NODE_SPACING, NODE_SIZE, NODE_SIZE))
+            for x, bulb in enumerate(row):
+                image = IMAGE_BULB_LIT if bulb else IMAGE_BULB_DARK
+                display.blit(image, (x * BLOCK_SIZE + NODE_SPACING, y * BLOCK_SIZE + NODE_SPACING))
+
     def toggleAt(self, pos):
         for x, y in self.neighborRules[pos[1]][pos[0]]:
             self.grid[y][x] = not self.grid[y][x]
