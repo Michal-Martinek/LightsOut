@@ -1,10 +1,11 @@
 import pygame
 import random
 
-NODE_NUMBER = 3
+NODE_NUMBER = 4
 NODE_SIZE = 120
 NODE_SPACING = 25
 BLOCK_SIZE = NODE_SIZE + NODE_SPACING
+HEADER_HEIGHT = 50
 SCREEN_SIZE = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
 
 # assets
@@ -43,12 +44,15 @@ class LightsGrid:
         for y, row in enumerate(self.grid):
             for x, bulb in enumerate(row):
                 image = IMAGE_BULB_LIT if bulb else IMAGE_BULB_DARK
-                display.blit(image, (x * BLOCK_SIZE + NODE_SPACING, y * BLOCK_SIZE + NODE_SPACING))
+                display.blit(image, (x * BLOCK_SIZE + NODE_SPACING, y * BLOCK_SIZE + NODE_SPACING + HEADER_HEIGHT))
 
     def toggleAt(self, pos):
         for x, y in self.neighborRules[pos[1]][pos[0]]:
             self.grid[y][x] = not self.grid[y][x]
     def click(self, pos):
+        pos = list(pos)
+        pos[1] -= HEADER_HEIGHT
+        if pos[1] < 0: return 
         clicked = pos[0] // BLOCK_SIZE, pos[1] // BLOCK_SIZE
         remaining = pos[0] % BLOCK_SIZE, pos[1] % BLOCK_SIZE
         if (remaining[0] >= NODE_SPACING) and (remaining[1] >= NODE_SPACING):
@@ -56,7 +60,7 @@ class LightsGrid:
                 self.toggleAt(clicked)
 
 def main():
-    display = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE))
+    display = pygame.display.set_mode((SCREEN_SIZE, SCREEN_SIZE + HEADER_HEIGHT))
     pygame.display.set_caption('Lights Out')
     grid = LightsGrid(NODE_NUMBER)
     clock = pygame.time.Clock()
@@ -71,6 +75,7 @@ def main():
                 grid.click(pos)
         display.fill((255, 255, 255))
         grid.drawGrid(display)
+        pygame.draw.rect(display, (0, 0, 255), (0, 0, SCREEN_SIZE, HEADER_HEIGHT))
         pygame.display.update()
         clock.tick(30)
     pygame.quit()
