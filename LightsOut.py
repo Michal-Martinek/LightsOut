@@ -1,5 +1,8 @@
 import pygame
 import random
+import time
+import math
+pygame.init()
 
 NODE_NUMBER = 3
 NODE_SIZE = 120
@@ -11,6 +14,7 @@ SCREEN_WIDTH = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
 SCREEN_HEIGHT = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING + HEADER_HEIGHT
 
 SMILEY_POS = ((SCREEN_WIDTH - 40) // 2, (HEADER_HEIGHT - 40) // 2)
+LABEL_POS = ((SCREEN_WIDTH - SMILEY_POS[0] - 120) // 2 + SMILEY_POS[0] + 40, 3)
 
 # assets
 IMAGE_BULB_LIT = pygame.image.load('Assets\\BulbLit.png')
@@ -79,6 +83,9 @@ def main():
     gameWon = False
     smileyFirstClicked = False
 
+    gameStartTime = time.time()
+    timeFont = pygame.font.SysFont('arial', 40, bold=True)
+
     running = True
     while running:
         for event in pygame.event.get():
@@ -92,6 +99,7 @@ def main():
                         grid = LightsGrid(NODE_NUMBER)
                         gameWon = False
                         smileyFirstClicked = False
+                        gameStartTime = time.time()
                     else: 
                         smileyFirstClicked = True
 
@@ -100,6 +108,14 @@ def main():
 
         pygame.draw.rect(display, (0, 0, 255), (0, 0, SCREEN_WIDTH, HEADER_HEIGHT))
         display.blit((IMAGE_WIN if gameWon else IMAGE_GAME), SMILEY_POS)
+
+        # time counter
+        if not gameWon:
+            dt = math.floor(time.time() - gameStartTime)
+        minutes = dt // 60
+        seconds = dt - 60 * minutes
+        label = timeFont.render(f'{minutes}:{seconds:0>2}', False, (255, 0, 0))
+        display.blit(label, LABEL_POS)
 
         pygame.display.update()
         clock.tick(30)
