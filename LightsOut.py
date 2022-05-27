@@ -14,7 +14,8 @@ SCREEN_WIDTH = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
 SCREEN_HEIGHT = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING + HEADER_HEIGHT
 
 SMILEY_POS = ((SCREEN_WIDTH - 40) // 2, (HEADER_HEIGHT - 40) // 2)
-LABEL_POS = ((SCREEN_WIDTH - SMILEY_POS[0] - 120) // 2 + SMILEY_POS[0] + 40, 3)
+LABEL_POS = ((3 * SCREEN_WIDTH) // 4 - 40, 3)
+TIMER_POS = (LABEL_POS[0] - 9, LABEL_POS[1])
 
 # assets
 IMAGE_BULB_LIT = pygame.image.load('Assets\\BulbLit.png')
@@ -26,6 +27,8 @@ IMAGE_WIN = pygame.image.load('Assets\\FaceWin.png')
 IMAGE_WIN.set_colorkey((255, 255, 255))
 IMAGE_GAME = pygame.image.load('Assets\\FaceGame.png')
 IMAGE_GAME.set_colorkey((255, 255, 255))
+IMAGE_TIMER_BOX = pygame.image.load('Assets\\TimerBox.png')
+IMAGE_TIMER_BOX.set_colorkey((255, 255, 255))
 
 
 class LightsGrid:
@@ -114,7 +117,8 @@ def main():
             dt = math.floor(time.time() - gameStartTime)
         minutes = dt // 60
         seconds = dt - 60 * minutes
-        label = timeFont.render(f'{minutes}:{seconds:0>2}', False, (255, 0, 0))
+        label = timeFont.render(f'{minutes:0>2}:{seconds:0>2}', False, (255, 0, 0))
+        display.blit(IMAGE_TIMER_BOX, (TIMER_POS))
         display.blit(label, LABEL_POS)
 
         pygame.display.update()
