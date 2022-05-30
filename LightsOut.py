@@ -2,33 +2,26 @@ import pygame
 import random
 import time
 import math
-pygame.init()
 
-NODE_NUMBER = 3
-NODE_SIZE = 120
-NODE_SPACING = 25
-BLOCK_SIZE = NODE_SIZE + NODE_SPACING
+def prepareImages(nodeNumber):
+    global IMAGE_BULB_LIT, IMAGE_BULB_DARK, IMAGE_WIN, IMAGE_GAME, IMAGE_TIMER_BOX, IMAGE_DROPDOWN_ARROW
+    IMAGE_BULB_LIT = pygame.image.load('Assets\\BulbLit.png')
+    if nodeNumber > 5:
+        IMAGE_BULB_LIT = pygame.transform.scale(IMAGE_BULB_LIT, (60, 60))
+    IMAGE_BULB_LIT.set_colorkey((255, 255, 255))
+    IMAGE_BULB_DARK = pygame.image.load('Assets\\BulbDark.png')
+    if nodeNumber > 5:
+        IMAGE_BULB_DARK = pygame.transform.scale(IMAGE_BULB_DARK, (60, 60))
+    IMAGE_BULB_DARK.set_colorkey((255, 255, 255))
 
-HEADER_HEIGHT = 50
-SCREEN_WIDTH = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
-SCREEN_HEIGHT = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING + HEADER_HEIGHT
-
-SMILEY_POS = ((SCREEN_WIDTH - 40) // 2, (HEADER_HEIGHT - 40) // 2)
-LABEL_POS = ((3 * SCREEN_WIDTH) // 4 - 40, 3)
-TIMER_POS = (LABEL_POS[0] - 9, LABEL_POS[1])
-
-# assets
-IMAGE_BULB_LIT = pygame.image.load('Assets\\BulbLit.png')
-IMAGE_BULB_LIT.set_colorkey((255, 255, 255))
-IMAGE_BULB_DARK = pygame.image.load('Assets\\BulbDark.png')
-IMAGE_BULB_DARK.set_colorkey((255, 255, 255))
-
-IMAGE_WIN = pygame.image.load('Assets\\FaceWin.png')
-IMAGE_WIN.set_colorkey((255, 255, 255))
-IMAGE_GAME = pygame.image.load('Assets\\FaceGame.png')
-IMAGE_GAME.set_colorkey((255, 255, 255))
-IMAGE_TIMER_BOX = pygame.image.load('Assets\\TimerBox.png')
-IMAGE_TIMER_BOX.set_colorkey((255, 255, 255))
+    IMAGE_WIN = pygame.image.load('Assets\\FaceWin.png')
+    IMAGE_WIN.set_colorkey((255, 255, 255))
+    IMAGE_GAME = pygame.image.load('Assets\\FaceGame.png')
+    IMAGE_GAME.set_colorkey((255, 255, 255))
+    IMAGE_TIMER_BOX = pygame.image.load('Assets\\TimerBox.png')
+    IMAGE_TIMER_BOX.set_colorkey((255, 255, 255))
+    IMAGE_DROPDOWN_ARROW = pygame.image.load('Assets\\DropdownArrow.png')
+    IMAGE_DROPDOWN_ARROW.set_colorkey((255, 255, 255))
 
 
 class LightsGrid:
@@ -42,6 +35,7 @@ class LightsGrid:
                                 self.neighborRules[y][x].append( (neighborX, neighborY) )
 
     def generateGrid(self):
+        # TODO: sometimes it generates board which is already solved
         numMoves = random.randint(2, self.size**2-1)
         bulbs = []
         for x in range(self.size):
@@ -77,17 +71,38 @@ class LightsGrid:
 
 def smileyClicked(pos) -> bool:
     return SMILEY_POS[0] <= pos[0] <= SMILEY_POS[0]+40 and SMILEY_POS[1] <= pos[1] <= SMILEY_POS[1]+40
+def drawDropdown(display, dropped):
+    if dropped:
+        pygame.draw.rect(display, (255, 255, 255), (*DROPDOWN_RECT[:3], 8 * DROPDOWN_RECT[3] - 27), border_radius=5)
+        pygame.draw.rect(display, (0, 0, 0), (*DROPDOWN_RECT[:3], 8 * DROPDOWN_RECT[3] - 27), 3, border_radius=5)
+        for i in range(8):
+            label = timeFont.render(str(i + 2), False, (0, 0, 0))
+            display.blit(label, (DROPDOWN_POS[0] + 13, DROPDOWN_POS[1] + i * 40))
+    else:
+        pygame.draw.rect(display, (255, 255, 255), DROPDOWN_RECT, border_radius=5)
+        pygame.draw.rect(display, (0, 0, 0), DROPDOWN_RECT, 3, border_radius=5)
+        label = timeFont.render(str(NODE_NUMBER), False, (0, 0, 0))
+        display.blit(label, (DROPDOWN_POS[0] + 13, DROPDOWN_POS[1]))
+        display.blit(IMAGE_DROPDOWN_ARROW, (DROPDOWN_POS[0] + 45, DROPDOWN_POS[1] + 17))
 
-def main():
+def dropdownClicked(pos, dropped: bool=False):
+    if dropped:
+        for i in range(8):
+            rect = pygame.Rect((DROPDOWN_POS[0] + 13, DROPDOWN_POS[1] + i * 40, 80, 44))
+            if rect.collidepoint(pos): return i + 2
+        return None
+    return pygame.Rect(DROPDOWN_RECT).collidepoint(pos)
+
+def game():
     display = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
     pygame.display.set_caption('Lights Out')
     grid = LightsGrid(NODE_NUMBER)
     clock = pygame.time.Clock()
     gameWon = False
     smileyFirstClicked = False
+    droppedDown = False
 
     gameStartTime = time.time()
-    timeFont = pygame.font.SysFont('arial', 40, bold=True)
 
     running = True
     while running:
@@ -95,16 +110,26 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.MOUSEBUTTONDOWN:
-                if not gameWon:
-                    gameWon = grid.click(event.pos)
-                if smileyClicked(event.pos):
-                    if smileyFirstClicked:
-                        grid = LightsGrid(NODE_NUMBER)
-                        gameWon = False
-                        smileyFirstClicked = False
-                        gameStartTime = time.time()
-                    else: 
-                        smileyFirstClicked = True
+                if droppedDown:
+                    res = dropdownClicked(event.pos, True)
+                    if not res:
+                        droppedDown = False
+                    else:
+                        return res
+                else:
+                    if not gameWon:
+                        gameWon = grid.click(event.pos)
+                    if smileyClicked(event.pos):
+                        if smileyFirstClicked:
+                            grid = LightsGrid(NODE_NUMBER)
+                            gameWon = False
+                            smileyFirstClicked = False
+                            gameStartTime = time.time()
+                        else: 
+                            smileyFirstClicked = True
+                
+                    if dropdownClicked(event.pos):
+                        droppedDown = True
 
         display.fill((255, 255, 255))
         grid.drawGrid(display)
@@ -121,8 +146,38 @@ def main():
         display.blit(IMAGE_TIMER_BOX, (TIMER_POS))
         display.blit(label, LABEL_POS)
 
+        drawDropdown(display, droppedDown)
+
         pygame.display.update()
         clock.tick(30)
+
+def initGlobals(nodeNumber):
+    global NODE_NUMBER, NODE_NUMBER, NODE_SPACING, BLOCK_SIZE, HEADER_HEIGHT, SCREEN_WIDTH, SCREEN_HEIGHT, SMILEY_POS, LABEL_POS, TIMER_POS, DROPDOWN_POS, DROPDOWN_RECT, timeFont
+    NODE_NUMBER = nodeNumber
+    NODE_SIZE = 120 if nodeNumber <= 5 else 60
+    NODE_SPACING = 25 if nodeNumber < 5 else 13
+    BLOCK_SIZE = NODE_SIZE + NODE_SPACING
+
+    HEADER_HEIGHT = 50
+    SCREEN_WIDTH = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING
+    SCREEN_HEIGHT = NODE_NUMBER  * BLOCK_SIZE + NODE_SPACING + HEADER_HEIGHT
+
+    SMILEY_POS = ((SCREEN_WIDTH - 40) // 2, (HEADER_HEIGHT - 40) // 2)
+    LABEL_POS = ((3 * SCREEN_WIDTH) // 4 - 40, 3)
+    TIMER_POS = (LABEL_POS[0] - 9, LABEL_POS[1])
+    DROPDOWN_POS = (SMILEY_POS[0] // 2 - 40, 3)
+    DROPDOWN_RECT = (*DROPDOWN_POS, 80, 44)
+
+    timeFont = pygame.font.SysFont('arial', 40, bold=True)
+
+
+def main():
+    pygame.init()
+    nodeNumber = 3
+    while (nodeNumber):
+        initGlobals(nodeNumber)
+        prepareImages(nodeNumber)
+        nodeNumber = game()
     pygame.quit()
 
 if __name__ == '__main__':
