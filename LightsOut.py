@@ -49,20 +49,19 @@ class Parameters:
 
 class LightsGrid:
     def generateNeighborRules(self):
-        for x in range(self.size):
-            for y in range(self.size):
-                for neighborX in range(x-1, x+2):
-                    for neighborY in range(y-1, y+2):
+        for y in range(self.size):
+            for x in range(self.size):
+                for neighborY in range(y-1, y+2):
+                    for neighborX in range(x-1, x+2):
                         if 0 <= neighborX < self.size and 0 <= neighborY < self.size:
                             if (x == neighborX and y == neighborY) or random.random() >= 0.5:
-                                self.neighborRules[y][x].append( (neighborX, neighborY) )
-
+                                self.neighborRules[y][x].append( (neighborY, neighborX) )
     def generateGrid(self):
         # TODO: sometimes it generates board which is already solved
         numMoves = random.randint(2, self.size**2-1)
         bulbs = []
-        for x in range(self.size):
-            bulbs.extend( [(x, y) for y in range(self.size)] )
+        for y in range(self.size):
+            bulbs.extend( [(y, x) for x in range(self.size)] )
         moves = random.sample(bulbs, numMoves)
         for move in moves:
             self.toggleAt(move)
@@ -84,11 +83,11 @@ class LightsGrid:
             posY += params.BLOCK_SIZE
 
     def toggleAt(self, pos):
-        for x, y in self.neighborRules[pos[1]][pos[0]]:
+        for y, x in self.neighborRules[pos[0]][pos[1]]:
             self.grid[y][x] = not self.grid[y][x]
     def click(self, pos, params: Parameters) -> bool:
-        pos = [pos[0], pos[1] - params.HEADER_HEIGHT]
-        if pos[1] < 0: return False
+        pos = [pos[1] - params.HEADER_HEIGHT, pos[0]]
+        if pos[0] < 0: return False
         clicked = pos[0] // params.BLOCK_SIZE, pos[1] // params.BLOCK_SIZE
         remaining = pos[0] % params.BLOCK_SIZE, pos[1] % params.BLOCK_SIZE
         if (remaining[0] >= params.NODE_SPACING) and (remaining[1] >= params.NODE_SPACING):
