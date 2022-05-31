@@ -32,6 +32,8 @@ class Parameters:
         self.IMAGE_TIMER_BOX.set_colorkey((255, 255, 255))
         self.IMAGE_DROPDOWN_ARROW = pygame.image.load('Assets\\DropdownArrow.png')
         self.IMAGE_DROPDOWN_ARROW.set_colorkey((255, 255, 255))
+        self.IMAGE_HINT = pygame.image.load('Assets\\HintIcon.png')
+        self.IMAGE_HINT.set_colorkey((255, 255, 255))
 
         # header graphics
         self.SMILEY_POS = ((self.SCREEN_WIDTH - 40) // 2, (self.HEADER_HEIGHT - 40) // 2)
@@ -46,6 +48,9 @@ class Parameters:
         self.DROPDOWN_NUM_POS_FUNC = lambda i: (self.DROPDOWN_POS[0] + 13, self.DROPDOWN_POS[1] + i * 40)
 
         self.FONT = pygame.font.SysFont('arial', 40, bold=True)
+
+        # game mechanics
+        self.HINT_TIME_INTERVAL = 10
 
 class LightsGrid:
     def generateNeighborRules(self):
@@ -62,16 +67,18 @@ class LightsGrid:
         bulbs = []
         for y in range(self.size):
             bulbs.extend( [(y, x) for x in range(self.size)] )
-        moves = random.sample(bulbs, numMoves)
-        for move in moves:
+        self.movesToSolve = random.sample(bulbs, numMoves)
+        for move in self.movesToSolve:
             self.toggleAt(move)
     def __init__(self, size: int):
         self.size = size
         self.grid = [[True for x in range(size)] for y in range(size)]
+        self.hinted = [[False for x in range(size)] for y in range(size)]
         self.neighborRules = [[[] for x in range(size)] for y in range(size)]
+        self.movesToSolve = None
+        self.clicked = [[False for x in range(size)] for y in range(size)]
         self.generateNeighborRules()
         self.generateGrid()
-        
     def drawGrid(self, display, params: Parameters):
         posY = params.HEADER_HEIGHT + params.NODE_SPACING
         for row in self.grid:
@@ -81,8 +88,9 @@ class LightsGrid:
                 display.blit(image, (posX, posY))
                 posX += params.BLOCK_SIZE
             posY += params.BLOCK_SIZE
-
     def toggleAt(self, pos):
+        if self.hinted[pos[0]][pos[1]]: return
+        self.clicked[pos[0]][pos[1]] = not self.clicked[pos[0]][pos[1]]
         for y, x in self.neighborRules[pos[0]][pos[1]]:
             self.grid[y][x] = not self.grid[y][x]
     def click(self, pos, params: Parameters) -> bool:
@@ -94,9 +102,15 @@ class LightsGrid:
             if (clicked[0] < self.size and clicked[1] < self.size):
                 self.toggleAt(clicked)
         return all([all(row) for row in self.grid])
+    def dropHint(self):
+        enmueratedRules = [(y, x, self.neighborRules[y][x]) for x in range(self.size) for y in range(self.size)]
+        lamda = lambda rule: len(rule[2]) * (not self.hinted[rule[0]][rule[1]] and self.clicked[rule[0]][rule[1]])
+        y, x, mostRules = max(enmueratedRules, key=lamda)
+        if self.hinted[y][x] or not self.clicked[y][x]: return
+        self.toggleAt((y, x))
+        self.hinted[y][x] = True
 
-def timerConstructor(display, params: Parameters):
-    startTime = time.time()
+def timerConstructor(display, startTime, params: Parameters):
     timePassed = 0
     def timerDrawerWrapper(gameWon):
         nonlocal timePassed
@@ -130,21 +144,28 @@ def dropdownClicked(pos, params: Parameters, dropped: bool) -> Union[bool, int]:
 
 def game():
     def gameRestart():
-        nonlocal params, display, grid, clock, timerDrawer, gameWon, smileyFirstClicked, droppedDown, running
+        nonlocal params, display, grid, clock, gameStartTime, timerDrawer, gameWon, smileyFirstClicked, droppedDown, running, hintAvailable
         params = Parameters(nodeNumber)
         display = pygame.display.set_mode((params.SCREEN_WIDTH, params.SCREEN_HEIGHT))
         pygame.display.set_caption('Lights Out')
         grid = LightsGrid(params.NODE_NUMBER)
         clock = pygame.time.Clock()
-        timerDrawer = timerConstructor(display, params)
+        gameStartTime = time.time()
+        timerDrawer = timerConstructor(display, gameStartTime, params)
         gameWon = False
         smileyFirstClicked = False
         droppedDown = False
         running = True
-    
+        hintAvailable = False
+        restartHintTimer()
+
     nodeNumber = 3
+    hintEventId = pygame.event.custom_type()
+    restartHintTimer: function = lambda: pygame.time.set_timer(pygame.event.Event(hintEventId), params.HINT_TIME_INTERVAL * 1000, loops=1)
     # NOTE: doing this for the scope definition of these variables before actually initializing
-    params = display = grid = clock = timerDrawer = gameWon = smileyFirstClicked = droppedDown = running = None
+    params: Parameters = None
+    grid: LightsGrid = None
+    display  = clock = gameStartTime = timerDrawer = gameWon = smileyFirstClicked = droppedDown = running = hintAvailable = None
     
     pygame.init()
     gameRestart()
@@ -153,7 +174,7 @@ def game():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
+            elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 if res := dropdownClicked(event.pos, params, droppedDown):
                     droppedDown = not droppedDown
                     if isinstance(res, int) and res >= 2 and droppedDown is not True:
@@ -164,15 +185,24 @@ def game():
                         gameWon = grid.click(event.pos, params)
                     if params.SMILEY_RECT.collidepoint(event.pos):
                         if smileyFirstClicked:
-                            gameRestart()
+                            if hintAvailable:
+                                grid.dropHint()
+                                smileyFirstClicked = False
+                                hintAvailable = False
+                                restartHintTimer()
+                            else:
+                                gameRestart()
                         else: 
                             smileyFirstClicked = True
-
+            elif event.type == hintEventId:
+                hintAvailable = True
+        
         display.fill((255, 255, 255))
         grid.drawGrid(display, params)
 
         pygame.draw.rect(display, (0, 0, 255), (0, 0, params.SCREEN_WIDTH, params.HEADER_HEIGHT))
-        display.blit((params.IMAGE_WIN if gameWon else params.IMAGE_GAME), params.SMILEY_POS)
+        smileyImg = params.IMAGE_WIN if gameWon else (params.IMAGE_HINT if hintAvailable else params.IMAGE_GAME)
+        display.blit(smileyImg, params.SMILEY_POS)
 
         timerDrawer(gameWon)
         drawDropdown(display, droppedDown, params)
