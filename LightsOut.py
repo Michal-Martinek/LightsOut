@@ -34,6 +34,10 @@ class Parameters:
         self.IMAGE_DROPDOWN_ARROW.set_colorkey((255, 255, 255))
         self.IMAGE_HINT = pygame.image.load('Assets\\HintIcon.png')
         self.IMAGE_HINT.set_colorkey((255, 255, 255))
+        self.IMAGE_HINTED_LIT = pygame.image.load('Assets\\HintedLit.png')
+        self.IMAGE_HINTED_LIT.set_colorkey((255, 255, 255))
+        self.IMAGE_HINTED_DARK = pygame.image.load('Assets\\HintedDark.png')
+        self.IMAGE_HINTED_DARK.set_colorkey((255, 255, 255))
 
         # header graphics
         self.SMILEY_POS = ((self.SCREEN_WIDTH - 40) // 2, (self.HEADER_HEIGHT - 40) // 2)
@@ -67,24 +71,24 @@ class LightsGrid:
         bulbs = []
         for y in range(self.size):
             bulbs.extend( [(y, x) for x in range(self.size)] )
-        self.movesToSolve = random.sample(bulbs, numMoves)
-        for move in self.movesToSolve:
+        movesToSolve = random.sample(bulbs, numMoves)
+        for move in movesToSolve:
             self.toggleAt(move)
     def __init__(self, size: int):
         self.size = size
         self.grid = [[True for x in range(size)] for y in range(size)]
         self.hinted = [[False for x in range(size)] for y in range(size)]
         self.neighborRules = [[[] for x in range(size)] for y in range(size)]
-        self.movesToSolve = None
         self.clicked = [[False for x in range(size)] for y in range(size)]
         self.generateNeighborRules()
         self.generateGrid()
     def drawGrid(self, display, params: Parameters):
+        images = [params.IMAGE_BULB_DARK, params.IMAGE_BULB_LIT, params.IMAGE_HINTED_DARK, params.IMAGE_HINTED_LIT]
         posY = params.HEADER_HEIGHT + params.NODE_SPACING
-        for row in self.grid:
+        for rows in zip(self.grid, self.hinted):
             posX = params.NODE_SPACING
-            for bulb in row:
-                image = params.IMAGE_BULB_LIT if bulb else params.IMAGE_BULB_DARK
+            for lit, hinted in zip(*rows):
+                image = images[lit + 2 * hinted]
                 display.blit(image, (posX, posY))
                 posX += params.BLOCK_SIZE
             posY += params.BLOCK_SIZE
@@ -93,7 +97,9 @@ class LightsGrid:
         self.clicked[pos[0]][pos[1]] = not self.clicked[pos[0]][pos[1]]
         for y, x in self.neighborRules[pos[0]][pos[1]]:
             self.grid[y][x] = not self.grid[y][x]
-    def click(self, pos, params: Parameters) -> bool:
+    def isWon(self):
+        return all([all(row) for row in self.grid])
+    def click(self, pos, params: Parameters):
         pos = [pos[1] - params.HEADER_HEIGHT, pos[0]]
         if pos[0] < 0: return False
         clicked = pos[0] // params.BLOCK_SIZE, pos[1] // params.BLOCK_SIZE
@@ -101,14 +107,23 @@ class LightsGrid:
         if (remaining[0] >= params.NODE_SPACING) and (remaining[1] >= params.NODE_SPACING):
             if (clicked[0] < self.size and clicked[1] < self.size):
                 self.toggleAt(clicked)
-        return all([all(row) for row in self.grid])
     def dropHint(self):
+        # test
+        return self.dropHintNostrict()
         enmueratedRules = [(y, x, self.neighborRules[y][x]) for x in range(self.size) for y in range(self.size)]
         lamda = lambda rule: len(rule[2]) * (not self.hinted[rule[0]][rule[1]] and self.clicked[rule[0]][rule[1]])
         y, x, mostRules = max(enmueratedRules, key=lamda)
-        if self.hinted[y][x] or not self.clicked[y][x]: return
+        if self.hinted[y][x] or not self.clicked[y][x]: return self.dropHintNostrict()
         self.toggleAt((y, x))
         self.hinted[y][x] = True
+    def dropHintNostrict(self):
+        notHintedBulbs = [(y, x) for y in range(self.size) for x in range(self.size) if not self.hinted[y][x]]
+        y, x = random.choice(notHintedBulbs)
+        if self.clicked[y][x]:
+            self.toggleAt((y, x))
+        self.hinted[y][x] = True
+
+
 
 def timerConstructor(display, startTime, params: Parameters):
     timePassed = 0
@@ -182,11 +197,13 @@ def game():
                         gameRestart()
                 else:
                     if not gameWon:
-                        gameWon = grid.click(event.pos, params)
+                        grid.click(event.pos, params)
+                        gameWon = grid.isWon()
                     if params.SMILEY_RECT.collidepoint(event.pos):
                         if smileyFirstClicked:
                             if hintAvailable:
                                 grid.dropHint()
+                                gameWon = grid.isWon()
                                 smileyFirstClicked = False
                                 hintAvailable = False
                                 restartHintTimer()
